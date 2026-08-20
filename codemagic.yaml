@@ -1,0 +1,44 @@
+workflows:
+  build-ios:
+    name: Build iOS IPA
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      # Sua conta Apple (gratuita ou paga). Defina na UI do Codemagic:
+      # APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID, CERTIFICATE_PRIVATE_KEY, CERTIFICATE_P12, PROVISIONING_PROFILE
+      groups:
+        - apple_credentials
+    scripts:
+      - name: Set up Flutter
+        script: |
+          flutter pub get
+      - name: Generate iOS scaffolding (if missing)
+        script: |
+          if [ ! -d "ios/Runner.xcworkspace" ]; then
+            flutter create --platforms=ios . --org com.fabiogomes.nasbackup
+          fi
+      - name: Build IPA (development / ad-hoc)
+        script: |
+          cd $CM_BUILD_DIR
+          flutter build ios --release --no-codesign
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/Runner.xcarchive \
+            ARCHIVE \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist ../exportOptions.plist \
+            -exportPath build/ipa
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      email:
+        recipients:
+          - fabiogbi.gomes@gmail.com
