@@ -6,8 +6,14 @@ workflows:
     environment:
       flutter: stable
       xcode: latest
-      # Sua conta Apple (gratuita ou paga). Defina na UI do Codemagic:
-      # APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID, CERTIFICATE_PRIVATE_KEY, CERTIFICATE_P12, PROVISIONING_PROFILE
+      # Credenciais ficam no Codemagic UI (grupo apple_credentials), NUNCA hardcoded aqui.
+      # No Codemagic, defina o grupo "apple_credentials" com:
+      #   APPLE_ID        = fabiogbi@hotmail.com
+      #   APPLE_PASSWORD  = <app-specific password gerada em appleid.apple.com>
+      #   APPLE_TEAM_ID   = <Team ID da conta Apple Developer>
+      #   CERTIFICATE_P12 = <conteudo do .p12 em base64>
+      #   CERTIFICATE_PRIVATE_KEY = <chave privada do certificado>
+      #   PROVISIONING_PROFILE = <conteudo do .mobileprovision>
       groups:
         - apple_credentials
     scripts:
@@ -41,4 +47,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - fabiogbi.gomes@gmail.com
+          - fabiogbi@hotmail.com
