@@ -351,7 +351,7 @@ def preview(parts, path, width=900, height=700, background="#eef1f5"):
         objs.append({"type": "mesh", "color": color, "outline": None,
                      "vertices": [[p[0] - cx, p[2], -(p[1] - cy)] for p in m.v],
                      "faces": [list(t) for t in m.f]})
-    d = size * 1.15
+    d = size * 1.5
     scene = {"width": width, "height": height, "background": background,
              "camera": {"position": [d * 0.8, d * 0.9, d * 1.1], "target": [0, (z1 - z0) / 3, 0], "fov": 35},
              "light": {"direction": [-0.4, -1, -0.6], "ambient": 0.45}, "objects": objs}

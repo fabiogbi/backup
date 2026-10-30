@@ -95,7 +95,7 @@ check(partes); export_3mf(partes, "chaveiro.3mf")
 
 **Logo 3D a partir de SVG**: converta os paths do SVG em polígonos (amostrando curvas Bézier em pontos; escala em mm), use `extrude` em cada forma e passe os recortes internos (ex.: o miolo de um "O") em `holes`. Para SVGs complexos, OpenSCAD é mais robusto: `linear_extrude(2) import("logo.svg");`.
 
-**Texto**: `modelo3d.py` não tem fontes. Use OpenSCAD (`linear_extrude(1) text("Ana", size=10, font="Liberation Sans:style=Bold");`) ou a ferramenta de texto do Creality Print, se a versão do usuário tiver. Para algumas letras grandes e simples, dá para desenhar os polígonos à mão.
+**Texto**: com `fontTools` (`pip install fonttools`) e uma fonte do sistema (`fc-list`, ex.: `/usr/share/fonts/opentype/inter/Inter-SemiBold.otf`), converta as letras em contornos e use `extrude` com os furos (miolo do O, A, R, D). Há um exemplo completo em `impressoes/suporte-dany-nogueira/gerar.py` (funções `texto` e `na_placa`, que põe o relevo numa face inclinada). Sem fontTools, use OpenSCAD (`linear_extrude(1) text("Ana", size=10, font="Liberation Sans:style=Bold");`) ou a ferramenta de texto do Creality Print. Prefira fontes SemiBold/Bold: com letras de 6 mm, o traço fica em ~1 mm.
 
 **Litofania** (foto que aparece contra a luz): `heightmap(grade, cell=0.25, base=0.8, height=2.2)`, com valores 0..1 em que 1 = pixel escuro (mais grosso). Imprima **em pé**, em PLA branco, com 100% de preenchimento e camada de 0,12 mm. Para converter uma imagem em grade sem bibliotecas, use PGM/PPM, ou Pillow se estiver disponível.
 
