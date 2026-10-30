@@ -35,7 +35,7 @@ Leia apenas a referência relevante para o pedido. Para qualquer peça com texto
 
 Este é um foco principal do skill: transformar ideias e desenhos em peças que imprimem bem de primeira na K2 Pro (volume de 300×300×300 mm, multicor com CFS de até 16 cores, fatiador Creality Print). Antes de modelar qualquer peça para impressão, **leia `references/creality-k2-pro.md`**. Ele traz as regras de design FDM, as estratégias multicor que economizam purga, as receitas e os materiais.
 
-`scripts/modelo3d.py` (Python puro) modela em milímetros com Z para cima: `extrude` (polígono com furos e chanfro), `box`, `rounded_box`, `cylinder`, `cone`, `sphere`, `heightmap` (relevo/litofania), formas 2D (`rect`, `rounded_rect`, `circle`, `star`, `heart`) e transformações (`moved`, `rotated`, `scaled`, `on_bed`, `centered`). Para nomes e logos em relevo: `text_shapes` (texto → contornos, requer `pip install fonttools`), `ellipse_ring`, `shift_shapes` e `emboss` (põe o relevo em qualquer face). Exemplos completos em `impressoes/*/gerar.py`.
+`scripts/modelo3d.py` (Python puro) modela em milímetros com Z para cima: `extrude` (polígono com furos e chanfro), `box`, `rounded_box`, `cylinder`, `cone`, `sphere`, `heightmap` (relevo/litofania), formas 2D (`rect`, `rounded_rect`, `circle`, `star`, `heart`) e transformações (`moved`, `rotated`, `scaled`, `on_bed`, `centered`). Para nomes e logos em relevo: `text_shapes` (texto → contornos, requer `pip install fonttools`), `ellipse_ring`, `shift_shapes`, `emboss` (põe o relevo em qualquer face) e, com Shapely, `to_shapely` + `extrude_geom` para recortes, furos, rebaixos e engrossar traços (`buffer`). Exemplos completos em `impressoes/*/gerar.py`.
 
 ```python
 import sys; sys.path.insert(0, "scripts")

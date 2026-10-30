@@ -93,6 +93,13 @@ check(partes); export_3mf(partes, "chaveiro.3mf")
 
 **Placa/letreiro com borda**: base `rounded_rect` + borda (`extrude(contorno, 1, holes=[contorno_interno])`) + símbolo em relevo, cada um com sua cor.
 
+**Baixo relevo com peças coladas (marchetaria)**: alternativa ao multicor do CFS, sem purga. A peça leva um rebaixo com o formato do nome/símbolos, e as letras são impressas à parte, deitadas, em outra cor, e coladas. Receita com Shapely (`pip install shapely`) e `extrude_geom`:
+- Formas engrossadas: `g = to_shapely(formas).buffer(0.25)` (traço final ≥ 1,5 mm para peças soltas).
+- Rebaixo: `g.buffer(0.15)` (folga para encaixe + cola). Profundidade de 1,2–1,5 mm, deixando ≥ 1,5 mm de parede atrás.
+- Peças com 2 mm de espessura (ficam ~0,5 mm saltadas) ou igual ao rebaixo (ficam niveladas).
+- Para recortar a face sem booleana 3D, construa a frente como uma placa 2D (`box(...).difference(rebaixo)`) extrudada com `to_world`, e o resto do corpo recuado. Exemplo: `impressoes/porta-marcadores-dany/gerar.py`.
+- Imprima as letras na mesma disposição do logo (facilita colar na ordem). Cola: cianoacrilato gel (Super Bonder gel) ou cola de contato.
+
 **Logo 3D a partir de SVG**: converta os paths do SVG em polígonos (amostrando curvas Bézier em pontos; escala em mm), use `extrude` em cada forma e passe os recortes internos (ex.: o miolo de um "O") em `holes`. Para SVGs complexos, OpenSCAD é mais robusto: `linear_extrude(2) import("logo.svg");`.
 
 **Texto/nome em relevo**: `text_shapes(texto, fonte, cap, tracking)` converte em contornos com furos (requer `pip install fonttools`; fontes via `fc-list`, ex.: `/usr/share/fonts/opentype/inter/Inter-SemiBold.otf`). Depois, `emboss(formas, 0.8, to_world)` coloca o relevo numa face: para a frente vertical de uma peça, use `lambda s, t, h: [s, -profundidade/2 - h, t]`. Calcule a largura e, se não couber no trecho reto (descontando os cantos arredondados), reduza a letra até no mínimo 5 mm ou quebre em duas linhas. Exemplos: `impressoes/porta-marcadores-dany/gerar.py` (frente vertical) e `impressoes/suporte-dany-nogueira/gerar.py` (face inclinada). Sem fontTools: OpenSCAD `text()` ou a ferramenta de texto do Creality Print.

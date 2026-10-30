@@ -448,3 +448,47 @@ def emboss(shapes, height, to_world, sink=0.2):
         m = extrude(c, height + sink, z0=-sink, holes=hs or None)
         out = out + Mesh([to_world(*p) for p in m.v], m.f)
     return out
+
+
+# ---------- formas booleanas 2D (opcional: pip install shapely) ----------
+
+def to_shapely(shapes):
+    """Converte [(contorno, [furos])] em uma geometria Shapely unida (para buffer/diferença/união)."""
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union
+    from shapely.validation import make_valid
+    return unary_union([make_valid(Polygon(c, hs)) for c, hs in shapes])
+
+
+def extrude_geom(geom, h, z0=0.0, to_world=None):
+    """Extruda uma geometria Shapely (Polygon/MultiPolygon, com furos) de z0 a z0+h.
+    Use para peças com recortes: ex. contorno.difference(furos), rebaixos, encaixes.
+    `to_world(x, y, z)` opcional leva o resultado para outro plano (deve preservar a orientação)."""
+    import shapely
+    from shapely.geometry import MultiPolygon, Polygon
+    from shapely.geometry.polygon import orient
+    polys = [geom] if isinstance(geom, Polygon) else [g for g in getattr(geom, "geoms", []) if isinstance(g, Polygon)]
+    v, f, idx = [], [], {}
+
+    def vid(x, y, z):
+        key = (round(x, 5), round(y, 5), z)
+        if key not in idx:
+            idx[key] = len(v)
+            v.append([x, y, z])
+        return idx[key]
+    for poly in polys:
+        if poly.is_empty or poly.area < 1e-9:
+            continue
+        poly = orient(poly, 1.0)  # contorno anti-horário, furos horários
+        for tri in shapely.constrained_delaunay_triangles(poly).geoms:
+            tri = orient(tri, 1.0)
+            a, b, c = list(tri.exterior.coords)[:3]
+            f.append((vid(*a, z0 + h), vid(*b, z0 + h), vid(*c, z0 + h)))
+            f.append((vid(*c, z0), vid(*b, z0), vid(*a, z0)))
+        for ring in [poly.exterior] + list(poly.interiors):
+            pts = list(ring.coords)[:-1]
+            for i in range(len(pts)):
+                p, q = pts[i], pts[(i + 1) % len(pts)]
+                f += [(vid(*p, z0), vid(*q, z0), vid(*q, z0 + h)), (vid(*p, z0), vid(*q, z0 + h), vid(*p, z0 + h))]
+    m = Mesh(v, f)
+    return Mesh([to_world(*p) for p in m.v], m.f) if to_world else m
