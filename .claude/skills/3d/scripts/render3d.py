@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Renderizador 3D minimalista (Python puro) que gera SVG a partir de uma cena JSON.
 
-Uso: python3 render3d.py cena.json saida.svg
+Uso: python3 render3d.py cena.json saida.svg   (vetorial, algoritmo do pintor, contornos)
+     python3 render3d.py cena.json saida.png   (raster com z-buffer: oclusão correta, antialias 2x)
 
 Recursos: câmera em perspectiva, luz direcional + ambiente, sombreamento flat,
 sombras projetadas no chão (primeiro objeto "plane"), contornos opcionais,
@@ -178,7 +179,7 @@ def make_transform(o):
 
 # ---------- render ----------
 
-def render(scene):
+def render(scene, fmt="svg"):
     W, H = scene.get("width", 800), scene.get("height", 600)
     cam = scene.get("camera", {})
     cpos = cam.get("position", [6, 5, 8])
@@ -254,6 +255,19 @@ def render(scene):
             item = (depth, proj, col, obj_outline, o.get("opacity", 1))
             (ground_polys if is_ground else polys).append(item)
 
+    shadow_proj = []
+    if shadows and ground_y is not None and ldir[1] < -1e-3:
+        for wp in shadow_polys:
+            sp = []
+            for p in wp:
+                t = (ground_y - p[1]) / ldir[1]
+                sp.append(project([p[0] + ldir[0] * t, ground_y + 0.001, p[2] + ldir[2] * t]))
+            if all(p is not None for p in sp):
+                shadow_proj.append(sp)
+
+    if fmt == "png":
+        return raster(scene, W, H, ground_polys, polys, shadow_proj, shadow_opacity)
+
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">']
     bg, bg2 = scene.get("background", "#f4efe6"), scene.get("background2")
     if bg2:
@@ -274,21 +288,16 @@ def render(scene):
     for d, proj, col, st, op in sorted(ground_polys, key=lambda t: -t[0]):
         out.append(poly_svg(proj, col, st, f' opacity="{op}"' if op != 1 else ""))
 
-    if shadows and ground_y is not None and ldir[1] < -1e-3:
+    if shadow_proj:
         # recorta as sombras pelo contorno do chão para não vazarem para o fundo
         out.append('<clipPath id="chao">' + "".join(
             '<polygon points="' + " ".join(f"{p[0]:.1f},{p[1]:.1f}" for p in proj) + '"/>'
             for _, proj, _, _, _ in ground_polys) + '</clipPath>')
         out.append(f'<g opacity="{shadow_opacity}" clip-path="url(#chao)">')
         sc = scene.get("shadow_color", "#1f2430")
-        for wp in shadow_polys:
-            sp = []
-            for p in wp:
-                t = (ground_y - p[1]) / ldir[1]
-                sp.append(project([p[0] + ldir[0] * t, ground_y + 0.001, p[2] + ldir[2] * t]))
-            if all(p is not None for p in sp):
-                pts = " ".join(f"{p[0]:.1f},{p[1]:.1f}" for p in sp)
-                out.append(f'<polygon points="{pts}" fill="{sc}" stroke="{sc}" stroke-width="0.6"/>')
+        for sp in shadow_proj:
+            pts = " ".join(f"{p[0]:.1f},{p[1]:.1f}" for p in sp)
+            out.append(f'<polygon points="{pts}" fill="{sc}" stroke="{sc}" stroke-width="0.6"/>')
         out.append("</g>")
 
     for d, proj, col, st, op in sorted(polys, key=lambda t: -t[0]):
@@ -298,15 +307,96 @@ def render(scene):
     return "\n".join(out)
 
 
+def raster(scene, W, H, ground_polys, polys, shadow_proj, shadow_opacity, ss=2):
+    """Rasterizador com z-buffer (Python puro). Retorna bytes PNG."""
+    import struct
+    import zlib
+    w, h = W * ss, H * ss
+    top = hex2rgb(scene.get("background", "#f4efe6"))
+    bot = hex2rgb(scene.get("background2", scene.get("background", "#f4efe6")))
+    color = [[top[i] + (bot[i] - top[i]) * (y / max(1, h - 1)) for i in range(3)] for y in range(h)]
+    img = [[list(color[y]) for _ in range(w)] for y in range(h)]
+    zbuf = [[float("inf")] * w for _ in range(h)]
+    owner = [[0] * w for _ in range(h)]  # 0 fundo, 1 chão, 2 objeto
+
+    def fill(poly, cb):
+        pts = [(p[0] * ss, p[1] * ss, p[2]) for p in poly]
+        for i in range(1, len(pts) - 1):
+            a, b, c = pts[0], pts[i], pts[i + 1]
+            area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+            if abs(area) < 1e-9:
+                continue
+            x0, x1 = max(0, int(min(a[0], b[0], c[0]))), min(w - 1, int(max(a[0], b[0], c[0])) + 1)
+            y0, y1 = max(0, int(min(a[1], b[1], c[1]))), min(h - 1, int(max(a[1], b[1], c[1])) + 1)
+            iza, izb, izc = 1 / a[2], 1 / b[2], 1 / c[2]
+            for y in range(y0, y1 + 1):
+                py = y + 0.5
+                for x in range(x0, x1 + 1):
+                    px = x + 0.5
+                    w0 = ((b[0] - px) * (c[1] - py) - (b[1] - py) * (c[0] - px)) / area
+                    w1 = ((c[0] - px) * (a[1] - py) - (c[1] - py) * (a[0] - px)) / area
+                    w2 = 1 - w0 - w1
+                    if w0 < -1e-6 or w1 < -1e-6 or w2 < -1e-6:
+                        continue
+                    cb(x, y, 1 / (w0 * iza + w1 * izb + w2 * izc))
+
+    def draw(items, kind):
+        for _, proj, col, _, op in items:
+            rgb = hex2rgb(col)
+
+            def put(x, y, z, rgb=rgb, op=op):
+                if z < zbuf[y][x]:
+                    zbuf[y][x] = z
+                    owner[y][x] = kind
+                    px = img[y][x]
+                    img[y][x] = [px[i] * (1 - op) + rgb[i] * op for i in range(3)] if op < 1 else list(rgb)
+            fill(proj, put)
+
+    draw(ground_polys, 1)
+    if shadow_proj:
+        mask = [[False] * w for _ in range(h)]
+
+        def mark(x, y, z):
+            mask[y][x] = True
+        for sp in shadow_proj:
+            fill(sp, mark)
+        sc = hex2rgb(scene.get("shadow_color", "#1f2430"))
+        for y in range(h):
+            for x in range(w):
+                if mask[y][x] and owner[y][x] == 1:
+                    px = img[y][x]
+                    img[y][x] = [px[i] * (1 - shadow_opacity) + sc[i] * shadow_opacity for i in range(3)]
+    draw(polys, 2)
+
+    raw = bytearray()
+    for y in range(H):
+        raw.append(0)
+        for x in range(W):
+            acc = [0.0, 0.0, 0.0]
+            for dy in range(ss):
+                for dx in range(ss):
+                    px = img[y * ss + dy][x * ss + dx]
+                    acc[0] += px[0]; acc[1] += px[1]; acc[2] += px[2]
+            raw += bytes(max(0, min(255, int(c / (ss * ss) + 0.5))) for c in acc)
+
+    def chunk(tag, data):
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", W, H, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b""))
+
+
 def main():
     if len(sys.argv) != 3:
         print(__doc__)
         sys.exit(1)
     with open(sys.argv[1], encoding="utf-8") as fh:
         scene = json.load(fh)
-    svg = render(scene)
-    with open(sys.argv[2], "w", encoding="utf-8") as fh:
-        fh.write(svg)
+    if sys.argv[2].lower().endswith(".png"):
+        with open(sys.argv[2], "wb") as fh:
+            fh.write(render(scene, "png"))
+    else:
+        with open(sys.argv[2], "w", encoding="utf-8") as fh:
+            fh.write(render(scene))
     print(f"ok: {sys.argv[2]}")
 
 

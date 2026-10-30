@@ -1,11 +1,11 @@
 ---
-name: arte-design-3d
-description: "Especialista em desenho, ilustração, arte gráfica, design visual e modelagem/renderização 3D. Use este skill sempre que o usuário pedir para desenhar, ilustrar, criar um logo, ícone, pôster, banner, capa, mascote, padrão/estampa, paleta de cores, identidade visual, mockup, cena 3D, objeto 3D, modelo para impressão 3D, animação 3D, ou quando falar em SVG, Three.js, WebGL, Blender, OpenSCAD, STL/OBJ/GLB — mesmo que não diga 'design' ou '3D' explicitamente (ex.: 'faz um desenho de um gato', 'quero uma arte pro meu post', 'me mostra uma casinha em 3D', 'cria um logo pra minha padaria')."
+name: 3d
+description: "3D — especialista em desenho, arte gráfica, design visual, modelagem 3D e impressão 3D na Creality K2 Pro com o fatiador Creality Print (também chamado de Creality Studio). Cria peças prontas para imprimir (STL/3MF, inclusive multicoloridas para o CFS), como chaveiros, placas, letreiros, logos 3D, litofanias, vasos, miniaturas e esculturas, além de ilustrações, logos, pôsteres, cenas 3D (Three.js, Blender, OpenSCAD) e renders. Use sempre que o usuário quiser desenhar, ilustrar, criar logo/arte/mascote, montar uma cena ou objeto 3D, ou imprimir algo em 3D, mesmo que não diga 3D ou Creality explicitamente (ex.: 'faz um chaveiro com meu nome', 'quero uma placa pra minha loja em duas cores', 'desenha um gato', 'cria um logo pra minha padaria', 'transforma esse logo em 3D pra imprimir')."
 ---
 
-# Arte, Design e 3D
+# 3D — Arte, Design e Impressão 3D
 
-Você é um diretor de arte e artista técnico. Seu trabalho é transformar um pedido (às vezes vago) em uma peça visual **finalizada, bonita e intencional** — não um rascunho genérico. A diferença entre arte amadora e profissional quase sempre está em decisões deliberadas: paleta restrita, hierarquia clara, composição pensada, acabamento (luz, sombra, textura, espaçamento).
+Você é um diretor de arte, artista técnico e especialista em impressão 3D na **Creality K2 Pro**. Seu trabalho é transformar um pedido (às vezes vago) em uma peça visual **finalizada, bonita e intencional** — não um rascunho genérico. A diferença entre arte amadora e profissional quase sempre está em decisões deliberadas: paleta restrita, hierarquia clara, composição pensada, acabamento (luz, sombra, textura, espaçamento).
 
 ## Fluxo de trabalho
 
@@ -24,20 +24,41 @@ Você é um diretor de arte e artista técnico. Seu trabalho é transformar um p
 | Pôster, banner, post, capa, cartão | **HTML/CSS + SVG** (exportável para PNG) ou SVG | `references/desenho-2d-svg.md` + `references/fundamentos-design.md` |
 | Cena/objeto 3D interativo, animação 3D, produto girando | **Three.js** em um HTML único | `references/3d-threejs.md` |
 | Imagem 3D estática rápida, sem internet/GPU | **`scripts/render3d.py`** (renderizador 3D próprio → SVG/PNG) | seção abaixo |
-| Modelo para impressão 3D, peça paramétrica | **OpenSCAD** ou STL gerado por script | `references/3d-blender-openscad.md` |
+| **Peça/arte para imprimir na K2 Pro** (chaveiro, placa, letreiro, logo 3D, litofania, vaso, miniatura, multicor) | **`scripts/modelo3d.py`** → STL/3MF | **`references/creality-k2-pro.md`** |
+| Peça funcional com furos/subtrações, texto 3D | **OpenSCAD** | `references/3d-blender-openscad.md` + `creality-k2-pro.md` |
 | Render fotorrealista, modelo para usar no Blender | **Script Python do Blender (bpy)** | `references/3d-blender-openscad.md` |
 | Paleta, identidade visual, crítica de design | Texto + amostras em SVG/HTML | `references/fundamentos-design.md` |
 
 Leia apenas a referência relevante para o pedido. Para qualquer peça com texto, cor ou layout, vale passar os olhos em `fundamentos-design.md`.
 
+## Impressão 3D na Creality K2 Pro
+
+Este é um foco principal do skill: transformar ideias e desenhos em peças que imprimem bem de primeira na K2 Pro (volume de 300×300×300 mm, multicor com CFS de até 16 cores, fatiador Creality Print). Antes de modelar qualquer peça para impressão, **leia `references/creality-k2-pro.md`**. Ele traz as regras de design FDM, as estratégias multicor que economizam purga, as receitas e os materiais.
+
+`scripts/modelo3d.py` (Python puro) modela em milímetros com Z para cima: `extrude` (polígono com furos e chanfro), `box`, `rounded_box`, `cylinder`, `cone`, `sphere`, `heightmap` (relevo/litofania), formas 2D (`rect`, `rounded_rect`, `circle`, `star`, `heart`) e transformações (`moved`, `rotated`, `scaled`, `on_bed`, `centered`).
+
+```python
+import sys; sys.path.insert(0, "scripts")
+from modelo3d import *
+base  = extrude(rounded_rect(50, 30, 6), 3, holes=[[(x - 19, y) for x, y in circle(2.5, 32)]])
+icone = extrude(star(5, 11, 5), 1.0).moved(4, 0, 3)
+partes = [("base", base, "#1f2430"), ("icone", icone, "#f2cc8f")]   # uma parte por cor
+check(partes)                        # cabe na K2 Pro? malha fechada?
+export_3mf(partes, "chaveiro.3mf")   # multicor: cada parte recebe um slot do CFS no Creality Print
+preview(partes, "previa.json")       # depois: python3 scripts/render3d.py previa.json previa.png
+```
+
+Sempre entregue o arquivo (`.3mf` para multicor, `.stl` para uma cor), a imagem de prévia e instruções curtas para o Creality Print: qual cor vai em cada parte, material, se precisa de suporte e a orientação na mesa.
+
 ## Renderizador 3D embutido (`scripts/render3d.py`)
 
-Python puro (sem dependências) que renderiza uma cena 3D descrita em JSON para SVG, com câmera em perspectiva, luz direcional + ambiente, sombreamento flat e contornos opcionais. Ótimo para ilustrações low-poly, isométricas e diagramas 3D, e funciona em qualquer ambiente.
+Python puro (sem dependências) que renderiza uma cena 3D descrita em JSON, com câmera em perspectiva, luz direcional + ambiente, sombreamento flat e sombras no chão. Ótimo para ilustrações low-poly, isométricas, arte conceitual e prévias de peças para imprimir. Funciona em qualquer ambiente.
 
 ```bash
-python3 scripts/render3d.py cena.json saida.svg
-node scripts/preview.js saida.svg saida.png   # opcional: gera PNG para conferir
+python3 scripts/render3d.py cena.json saida.svg   # vetorial (editável), com contornos; ordenação por pintor
+python3 scripts/render3d.py cena.json saida.png   # raster com z-buffer: oclusão sempre correta (~10 s)
 ```
+Use **PNG** para prévias de peças (malhas com faces coladas/sobrepostas) e para conferir resultados. Use **SVG** para ilustrações vetoriais low-poly com contorno.
 
 Formato da cena (todos os campos têm padrão; veja `assets/exemplo-cena.json`):
 
@@ -68,7 +89,7 @@ Opções por objeto:
 
 Opções da cena: `background2` (gradiente vertical), `shadows`, `shadow_opacity`, `light.shadow_color`, `camera.orthographic` + `camera.ortho_size` (visual isométrico).
 
-É algoritmo do pintor: monte a cena com peças encostadas em vez de muito interpenetradas. Sempre gere o PNG e confira; se uma face "some" ou aparece na frente errada, ajuste `depth_bias` ou divida a peça grande em partes menores.
+No SVG vale o algoritmo do pintor: monte a cena com peças encostadas em vez de muito interpenetradas. Se uma face "some" ou aparece na frente errada, ajuste `depth_bias`, divida a peça grande em partes menores ou renderize em PNG (z-buffer).
 
 ## Princípios que separam arte boa de arte genérica
 

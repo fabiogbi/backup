@@ -16,7 +16,7 @@ difference() {
 translate([0,0,altura*0.7]) rotate_extrude() translate([diametro/2,0]) circle(r = 1.5);
 ```
 
-Boas práticas para impressão FDM:
+Boas práticas para impressão FDM (detalhes da K2 Pro em `creality-k2-pro.md`):
 - Parede ≥ 1.2 mm (múltiplos do bico 0.4 mm), detalhes ≥ 0.8 mm.
 - Evite balanços > 45° sem suporte; chanfre em vez de filete nas bases.
 - Folga para encaixes: 0.2–0.3 mm. Base plana grande para aderência.
