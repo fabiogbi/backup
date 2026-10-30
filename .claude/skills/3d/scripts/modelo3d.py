@@ -357,3 +357,94 @@ def preview(parts, path, width=900, height=700, background="#eef1f5"):
              "light": {"direction": [-0.4, -1, -0.6], "ambient": 0.45}, "objects": objs}
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(scene, fh)
+
+
+# ---------- texto e formas decorativas ----------
+
+def _pip(pt, poly):
+    x, y, c = pt[0], pt[1], False
+    for i in range(len(poly)):
+        (x1, y1), (x2, y2) = poly[i], poly[i - 1]
+        if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+            c = not c
+    return c
+
+
+def text_shapes(s, font_path, cap, tracking=0.0, steps=8):
+    """Converte um texto em formas 2D [(contorno, [furos])] em mm (requer `pip install fonttools`).
+    cap = altura das maiúsculas em mm; linha de base em y=0, começando em x=0. Retorna (formas, largura).
+    Fontes do sistema: `fc-list` (ex.: /usr/share/fonts/opentype/inter/Inter-SemiBold.otf)."""
+    from fontTools.pens.basePen import BasePen
+    from fontTools.ttLib import TTFont
+
+    class Pen(BasePen):
+        def __init__(self, gs):
+            super().__init__(gs)
+            self.contours, self.cur = [], []
+
+        def _moveTo(self, p):
+            self.cur = [p]
+
+        def _lineTo(self, p):
+            self.cur.append(p)
+
+        def _curveToOne(self, p1, p2, p3):
+            p0 = self.cur[-1]
+            for i in range(1, steps + 1):
+                t = i / steps
+                a = (1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t ** 2, t ** 3
+                self.cur.append((a[0] * p0[0] + a[1] * p1[0] + a[2] * p2[0] + a[3] * p3[0],
+                                 a[0] * p0[1] + a[1] * p1[1] + a[2] * p2[1] + a[3] * p3[1]))
+
+        def _closePath(self):
+            if len(self.cur) > 2:
+                if self.cur[0] == self.cur[-1]:
+                    self.cur.pop()
+                self.contours.append(self.cur)
+            self.cur = []
+
+        _endPath = _closePath
+
+    font = TTFont(font_path)
+    gs, cmap = font.getGlyphSet(), font.getBestCmap()
+    k = cap / font["OS/2"].sCapHeight
+    shapes, x = [], 0.0
+    for ch in s:
+        g = cmap.get(ord(ch))
+        if g is None:
+            continue
+        pen = Pen(gs)
+        gs[g].draw(pen)
+        cs = [[(x + px * k, py * k) for px, py in c] for c in pen.contours]
+        for c in cs:
+            if sum(_pip(c[0], o) for o in cs if o is not c) % 2 == 0:
+                holes = [h for h in cs if h is not c and _pip(h[0], c) and abs(_area(h)) < abs(_area(c))]
+                shapes.append((c, holes))
+        x += gs[g].width * k + tracking
+    return shapes, max(0.0, x - tracking)
+
+
+def shift_shapes(shapes, dx, dy):
+    return [([(p[0] + dx, p[1] + dy) for p in c], [[(p[0] + dx, p[1] + dy) for p in h] for h in hs])
+            for c, hs in shapes]
+
+
+def ellipse_ring(rx, ry, width, angle=0, seg=72):
+    """Anel elíptico (forma 2D com furo), útil para órbitas, molduras, logos."""
+    a = math.radians(angle)
+
+    def el(ex, ey):
+        return [(ex * math.cos(t) * math.cos(a) - ey * math.sin(t) * math.sin(a),
+                 ex * math.cos(t) * math.sin(a) + ey * math.sin(t) * math.cos(a))
+                for t in (2 * math.pi * i / seg for i in range(seg))]
+    return el(rx + width / 2, ry + width / 2), [el(rx - width / 2, ry - width / 2)]
+
+
+def emboss(shapes, height, to_world, sink=0.2):
+    """Extruda formas 2D (s, t) em relevo e leva para uma face com `to_world(s, t, h) -> [x, y, z]`.
+    `sink` afunda a base na superfície para garantir a união. A transformação deve preservar a orientação."""
+    out = Mesh()
+    for c, hs in shapes:
+        m = extrude(c, height + sink, z0=-sink, holes=hs or None)
+        out = out + Mesh([to_world(*p) for p in m.v], m.f)
+    return out
