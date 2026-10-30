@@ -17,14 +17,14 @@ from modelo3d import (check, circle, ellipse_ring, emboss, export_3mf, export_st
 FONTE = "/usr/share/fonts/opentype/inter/Inter-SemiBold.otf"
 NOME = "DANY NOGUEIRA"
 
-# Medidas (mm). Pilot V-Board Master: corpo ~16 mm, tampa um pouco maior -> furo de 19 mm.
-# Imprima primeiro o anel de teste e ajuste DIAMETRO_FURO se ficar justo/folgado.
-DIAMETRO_FURO = 19.0
-PASSO = 23.0          # distância entre centros dos furos
-PROFUNDIDADE = 26.0   # largura da barra (Y)
-ALTURA = 24.0         # altura da barra (Z)
+# Medidas (mm). Pilot V-Board Master (ficha técnica Pilot Brasil): corpo 22,6 mm, tampa 20,5 mm.
+# Furo = corpo + 0,8 mm de folga. Imprima o anel de teste e ajuste DIAMETRO_FURO se precisar.
+DIAMETRO_FURO = 23.4
+PASSO = 27.0          # distância entre centros dos furos (parede de 3,6 mm entre eles)
+PROFUNDIDADE = 30.0   # largura da barra (Y): parede de 3,3 mm na frente e atrás
+ALTURA = 28.0         # altura da barra (Z): segura bem o marcador e dá espaço para o nome
 FUNDO = 3.0           # fundo fechado dos furos
-RAIO_CANTO = 9.0
+RAIO_CANTO = 12.0
 RELEVO = 0.8
 
 COR_CORPO, COR_NOME, COR_CORACAO = "#F4A3B9", "#9C4A5A", "#E25D7E"
@@ -51,7 +51,7 @@ def logo(comp):
     tc = ALTURA / 2 + 0.6                     # um pouco acima do meio (centro óptico)
     primeiro, ultimo = NOME.split(" ", 1)
     for linhas in (1, 2):
-        cap = 6.0 if linhas == 1 else 5.6
+        cap = 7.0 if linhas == 1 else 6.0
         while True:
             trk = cap * 0.28
             if linhas == 1:
@@ -82,10 +82,10 @@ def logo(comp):
 
 
 def anel_teste():
-    """Três anéis baixos (18,5 / 19 / 19,5 mm) para testar o encaixe do marcador antes da peça grande."""
+    """Três anéis baixos (furo -0,4 / furo / furo +0,4 mm) para testar o encaixe do marcador antes da peça grande."""
     pecas = []
-    for i, d in enumerate((DIAMETRO_FURO - 0.5, DIAMETRO_FURO, DIAMETRO_FURO + 0.5)):
-        x = (i - 1) * 30
+    for i, d in enumerate((DIAMETRO_FURO - 0.4, DIAMETRO_FURO, DIAMETRO_FURO + 0.4)):
+        x = (i - 1) * 34
         anel = extrude([(px + x, py) for px, py in circle(d / 2 + 2.4, 64)], 6,
                        holes=[[(px + x, py) for px, py in circle(d / 2, 64)]])
         marca = extrude([(px + x, py + d / 2 + 2.6) for px, py in circle(1.0 + i * 0.6, 16)], 6)  # 1, 2 ou 3 tamanhos
