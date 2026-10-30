@@ -34,7 +34,7 @@ RAIO_CANTO = 12.0
 
 # Baixo relevo + peças coladas
 REBAIXO = 1.5         # profundidade do rebaixo na frente
-ESPESSURA_PECA = 2.0  # espessura das letras/símbolos (fica 0,5 mm saltado da frente)
+ESPESSURA_PECA = 2.5  # espessura das letras/símbolos (fica 1,0 mm saltado da frente)
 ENGROSSAR = 0.25      # engrossa o traço das letras/símbolos em cada lado (traço fica ~0,5 mm mais grosso)
 FOLGA = 0.15          # folga de encaixe + cola em cada lado do rebaixo
 
