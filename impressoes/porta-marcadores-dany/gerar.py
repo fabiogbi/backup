@@ -5,9 +5,10 @@ O nome e os símbolos ficam em BAIXO RELEVO (rebaixo) na frente da peça e são 
 mais grossos, para serem colados no rebaixo (encaixe tipo marchetaria).
 
 Gera para cada versão:
-  porta-marcadores-dany-N-furos.stl/.3mf   corpo rosa com o rebaixo
-  pecas-nome-N-furos.3mf                   nome/átomo (vinho) + corações (rosa forte), deitados na mesa
-  pecas-nome-N-furos-{nome,coracoes}.stl   as mesmas peças separadas por cor
+  1-SUPORTE-rebaixo-N-furos.stl/.3mf   corpo rosa com o rebaixo (baixo relevo) para colar as peças
+  2-LETRAS-e-ATOMO-N-furos.stl         nome + átomo (rosa-vinho), deitados na mesa
+  3-CORACOES-N-furos.stl               os 2 corações (rosa forte), deitados na mesa
+  pecas-N-furos-todas-cores.3mf        letras + corações juntos, uma parte por cor
 e o anel teste-encaixe-marcador.stl. Requer: pip install fonttools shapely
 """
 import os
@@ -111,6 +112,18 @@ def peca(n):
     return comp, corpo, (montado_nome, montado_cor), (deitado_nome, deitado_cor), cap, total
 
 
+def coracoes_juntos(n):
+    """Os corações lado a lado no centro da mesa (só para imprimir; o encaixe continua o mesmo)."""
+    from shapely.affinity import translate
+    _, g_cor, _, _ = logo_2d(n * PASSO + 6.0)
+    pecas, x = [], 0.0
+    for g in sorted(g_cor.geoms, key=lambda g: -g.area):
+        x0, y0, x1, y1 = g.bounds
+        pecas.append(extrude_geom(translate(g, x - x0, -(y0 + y1) / 2), ESPESSURA_PECA))
+        x += (x1 - x0) + 5.0
+    return union(*pecas).centered()
+
+
 def anel_teste():
     pecas = []
     for i, d in enumerate((DIAMETRO_FURO - 0.4, DIAMETRO_FURO, DIAMETRO_FURO + 0.4)):
@@ -125,16 +138,16 @@ def main():
     import json
     for n in (6, 4):
         comp, corpo, (mn, mc), (dn, dc), cap, total = peca(n)
-        base = f"porta-marcadores-dany-{n}-furos"
+        base = f"1-SUPORTE-rebaixo-{n}-furos"
         print(f"\n== {n} furos ==  letras de {cap:.1f} mm, logo com {total:.0f} mm")
         check([("corpo", corpo, COR_CORPO)])
         export_stl(corpo, os.path.join(HERE, base + ".stl"), base)
         export_3mf([("corpo", corpo, COR_CORPO)], os.path.join(HERE, base + ".3mf"))
         pecas = [("nome", dn, COR_NOME), ("coracoes", dc, COR_CORACAO)]
         check(pecas)
-        export_3mf(pecas, os.path.join(HERE, f"pecas-nome-{n}-furos.3mf"))
-        export_stl(dn, os.path.join(HERE, f"pecas-nome-{n}-furos-nome.stl"), "nome")
-        export_stl(dc, os.path.join(HERE, f"pecas-nome-{n}-furos-coracoes.stl"), "coracoes")
+        export_3mf(pecas, os.path.join(HERE, f"pecas-{n}-furos-todas-cores.3mf"))
+        export_stl(dn, os.path.join(HERE, f"2-LETRAS-e-ATOMO-{n}-furos.stl"), "letras")
+        export_stl(coracoes_juntos(n), os.path.join(HERE, f"3-CORACOES-{n}-furos.stl"), "coracoes")
         # cenas de prévia: montado e só o corpo (rebaixo vazio)
         for nome_cena, partes in (("montado", [("corpo", corpo, COR_CORPO), ("nome", mn, COR_NOME),
                                                ("coracoes", mc, COR_CORACAO)]),
