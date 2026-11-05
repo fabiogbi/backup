@@ -1,0 +1,9 @@
+{
+  "name": "inventario-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PWA de contagem cega de inventário com leitura de código de barras e relatório HTML",
+  "scripts": {
+    "test": "node --test tests/core.test.js"
+  }
+}
